@@ -3,7 +3,6 @@ package co.moonmonkeylabs.realmmap.example.models;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.maps.android.clustering.ClusterItem;
 
-import io.realm.ClusterRealmObject;
 import io.realm.RealmObject;
 import io.realm.annotations.Ignore;
 import io.realm.annotations.PrimaryKey;
@@ -23,7 +22,7 @@ public class Business extends RealmObject implements ClusterItem {
     private float longitude;
 
     @Ignore
-    private LatLng position;
+    private LatLng position = null;
 
     public Business(int id, String name, float latitude, float longitude) {
         this.id = id;
@@ -69,6 +68,9 @@ public class Business extends RealmObject implements ClusterItem {
 
     @Override
     public LatLng getPosition() {
-        return new LatLng(getLatitude(), getLongitude());
+        if (position == null) {
+            position = new LatLng(getLatitude(), getLongitude());
+        }
+        return position;
     }
 }
