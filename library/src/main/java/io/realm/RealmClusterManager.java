@@ -17,6 +17,8 @@ import io.realm.internal.Table;
 public class RealmClusterManager<M extends RealmObject>
         extends ClusterManager<RealmClusterWrapper<M>> {
 
+    private long titleColumnIndex = -1;
+
     public RealmClusterManager(Context context, GoogleMap map) {
         super(context, map);
     }
@@ -38,6 +40,8 @@ public class RealmClusterManager<M extends RealmObject>
     public void addRealmResultItems(RealmResults<M> realmResults) {
         super.clearItems();
         final Table table = realmResults.getTable().getTable();
+        titleColumnIndex = table.getColumnIndex("name");
+
         final long latIndex = table.getColumnIndex("latitude");
         final ColumnType columnType = table.getColumnType(latIndex);
         final long longIndex = table.getColumnIndex("longitude");
@@ -62,5 +66,9 @@ public class RealmClusterManager<M extends RealmObject>
             return row.getLong(columnIndex);
         }
         throw new IllegalStateException("The value type needs to be of double, float or int");
+    }
+
+    public long getTitleRealmColumnIndex() {
+        return titleColumnIndex;
     }
 }

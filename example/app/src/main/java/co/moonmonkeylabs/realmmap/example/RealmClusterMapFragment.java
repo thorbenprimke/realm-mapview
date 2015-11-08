@@ -42,8 +42,8 @@ public class RealmClusterMapFragment<M extends RealmObject> extends Fragment {
             double longitude = savedInstanceState.getDouble("longitude");
             float zoom = savedInstanceState.getFloat("zoom");
 
-            getMap().moveCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(latitude, longitude), zoom));
-
+            getMap().moveCamera(
+                    CameraUpdateFactory.newLatLngZoom(new LatLng(latitude, longitude), zoom));
         }
     }
 
@@ -61,20 +61,27 @@ public class RealmClusterMapFragment<M extends RealmObject> extends Fragment {
         setUpMapIfNeeded();
     }
 
+    @SuppressWarnings("unchecked")
     private void setUpMapIfNeeded() {
         if (map != null) {
             return;
         }
-        map = ((SupportMapFragment) getChildFragmentManager().findFragmentById(R.id.support_map_fragment)).getMap();
+        map = ((SupportMapFragment) getChildFragmentManager()
+                .findFragmentById(R.id.support_map_fragment)).getMap();
         if (map != null) {
-            getMap().moveCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(DEFAULT_LATITUDE, DEFAULT_LONGITUDE), 10));
+            getMap().moveCamera(CameraUpdateFactory.newLatLngZoom(
+                    new LatLng(DEFAULT_LATITUDE, DEFAULT_LONGITUDE), 10));
 
             realmClusterManager = new RealmClusterManager<>(getActivity(), getMap());
             if (realmResults != null) {
                 realmClusterManager.addRealmResultItems(realmResults);
             }
 
+            realmClusterManager.setRenderer(
+                    new RealmClusterRenderer(getActivity(), getMap(), realmClusterManager));
             getMap().setOnCameraChangeListener(realmClusterManager);
+            getMap().setOnMarkerClickListener(realmClusterManager);
+            getMap().setOnInfoWindowClickListener(realmClusterManager);
         }
     }
 
@@ -89,6 +96,5 @@ public class RealmClusterMapFragment<M extends RealmObject> extends Fragment {
             realmClusterManager.addRealmResultItems(realmResults);
         }
     }
-
 
 }

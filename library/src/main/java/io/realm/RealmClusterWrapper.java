@@ -4,6 +4,7 @@ import com.google.android.gms.maps.model.LatLng;
 import com.google.maps.android.clustering.ClusterItem;
 
 import io.realm.annotations.RealmClass;
+import io.realm.internal.Row;
 
 public class RealmClusterWrapper<T extends RealmObject> implements ClusterItem {
 
@@ -19,5 +20,9 @@ public class RealmClusterWrapper<T extends RealmObject> implements ClusterItem {
     @Override
     public LatLng getPosition() {
         return latLng;
+    }
+
+    public Row getRealmRow() {
+        return realmObj.row;
     }
 }
