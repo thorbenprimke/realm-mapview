@@ -37,6 +37,22 @@ public class RealmClusterMapFragment<M extends RealmObject> extends Fragment {
     public void onViewCreated(View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         setUpMapIfNeeded();
+        if (savedInstanceState != null) {
+            double latitude = savedInstanceState.getDouble("latitude");
+            double longitude = savedInstanceState.getDouble("longitude");
+            float zoom = savedInstanceState.getFloat("zoom");
+
+            getMap().moveCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(latitude, longitude), zoom));
+
+        }
+    }
+
+    @Override
+    public void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putDouble("latitude", getMap().getCameraPosition().target.latitude);
+        outState.putDouble("longitude", getMap().getCameraPosition().target.longitude);
+        outState.putFloat("zoom", getMap().getCameraPosition().zoom);
     }
 
     @Override
