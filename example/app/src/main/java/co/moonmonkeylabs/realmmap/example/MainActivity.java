@@ -3,11 +3,6 @@ package co.moonmonkeylabs.realmmap.example;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 
-import com.google.android.gms.maps.CameraUpdateFactory;
-import com.google.android.gms.maps.GoogleMap;
-import com.google.android.gms.maps.SupportMapFragment;
-import com.google.android.gms.maps.model.LatLng;
-
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -17,21 +12,18 @@ import java.util.List;
 
 import co.moonmonkeylabs.realmmap.example.models.Business;
 import io.realm.Realm;
-import io.realm.RealmClusterManager;
 import io.realm.RealmConfiguration;
-import io.realm.RealmResults;
 
 public class MainActivity extends AppCompatActivity {
 
     private Realm realm;
-    private GoogleMap map;
 
-    private RealmClusterManager<Business> realmClusterManager;
+    private RealmClusterMapFragment<Business> realmClusterMapFragment;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.map);
+        setContentView(R.layout.main_activity);
 
         resetRealm();
         realm = Realm.getInstance(this);
@@ -41,37 +33,19 @@ public class MainActivity extends AppCompatActivity {
         realm.copyToRealm(businesses);
         realm.commitTransaction();
 
-        setUpMapIfNeeded();
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        setUpMapIfNeeded();
-    }
-
-    private void setUpMapIfNeeded() {
-        if (map != null) {
-            return;
-        }
-        map = ((SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map)).getMap();
-        if (map != null) {
-            getMap().moveCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(37.791116, -122.403816), 10));
-
-            realmClusterManager = new RealmClusterManager<>(this, getMap());
-            RealmResults<Business> businessModel =
-                    realm.where(Business.class).findAll();
-            realmClusterManager.addRealmResultItems(businessModel);
-
-            getMap().setOnCameraChangeListener(realmClusterManager);
+        if (savedInstanceState == null) {
+            realmClusterMapFragment = new RealmClusterMapFragment<Business>();
+            realmClusterMapFragment.setRealmResults(realm.where(Business.class).findAll());
+            getSupportFragmentManager()
+                    .beginTransaction()
+                    .add(R.id.container, realmClusterMapFragment, "realmMap")
+                    .commit();
+        } else {
+            realmClusterMapFragment = (RealmClusterMapFragment)
+                    getSupportFragmentManager().findFragmentByTag("realmMap");
+            realmClusterMapFragment.setRealmResults(realm.where(Business.class).findAll());
         }
     }
-
-    protected GoogleMap getMap() {
-        setUpMapIfNeeded();
-        return map;
-    }
-
 
     public final List<Business> loadBusinessesData() {
         List<Business> businesses = new ArrayList<>();

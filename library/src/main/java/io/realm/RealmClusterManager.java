@@ -36,6 +36,7 @@ public class RealmClusterManager<M extends RealmObject>
     }
 
     public void addRealmResultItems(RealmResults<M> realmResults) {
+        super.clearItems();
         final Table table = realmResults.getTable().getTable();
         final long latIndex = table.getColumnIndex("latitude");
         final ColumnType columnType = table.getColumnType(latIndex);
