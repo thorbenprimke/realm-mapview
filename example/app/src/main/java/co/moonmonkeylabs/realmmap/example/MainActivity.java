@@ -16,30 +16,12 @@ import io.realm.RealmConfiguration;
 
 public class MainActivity extends AppCompatActivity {
 
-    private Realm realm;
-
-    private BusinessRealmClusterMapFragment realmClusterMapFragment;
-
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.main_activity);
-
         resetRealm();
-        realm = Realm.getInstance(this);
-
-        realm.beginTransaction();
-        final List<Business> businesses = loadBusinessesData();
-        realm.copyToRealm(businesses);
-        realm.commitTransaction();
-
-        if (savedInstanceState == null) {
-            realmClusterMapFragment = new BusinessRealmClusterMapFragment();
-            getSupportFragmentManager()
-                    .beginTransaction()
-                    .add(R.id.container, realmClusterMapFragment, "realmMap")
-                    .commit();
-        }
+        loadDataIntoRealm();
+        setContentView(R.layout.main_activity);
     }
 
     public final List<Business> loadBusinessesData() {
@@ -82,13 +64,13 @@ public class MainActivity extends AppCompatActivity {
         return original.subSequence(1, original.length() - 1).toString();
     }
 
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        if (realm != null) {
-            realm.close();
-            realm = null;
-        }
+    private void loadDataIntoRealm() {
+        Realm realm = Realm.getInstance(this);
+        realm.beginTransaction();
+        final List<Business> businesses = loadBusinessesData();
+        realm.copyToRealm(businesses);
+        realm.commitTransaction();
+        realm.close();
     }
 
     private void resetRealm() {
