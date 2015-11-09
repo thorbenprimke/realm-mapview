@@ -3,11 +3,6 @@ package co.moonmonkeylabs.realmmap.example;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.util.ArrayList;
 import java.util.List;
 
 import co.moonmonkeylabs.realmsfrestaurantdata.SFRestaurantDataLoader;
@@ -30,7 +25,8 @@ public class MainActivity extends AppCompatActivity {
     private void loadDataIntoRealm() {
         Realm realm = Realm.getDefaultInstance();
         realm.beginTransaction();
-        final List<Business> businesses = new SFRestaurantDataLoader().loadBusinessesData(this);
+        final List<Business> businesses =
+                new SFRestaurantDataLoader().loadBusinessSmallDataSet(this);
         realm.copyToRealm(businesses);
         realm.commitTransaction();
         realm.close();
@@ -50,5 +46,4 @@ public class MainActivity extends AppCompatActivity {
                 .setModules(Realm.getDefaultModule(), new SFRestaurantModule())
                 .build();
     }
-
 }

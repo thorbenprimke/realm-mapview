@@ -36,6 +36,7 @@ public abstract class RealmClusterMapFragment<M extends RealmObject> extends Fra
 
     private static final double DEFAULT_LATITUDE = 37.791116;
     private static final double DEFAULT_LONGITUDE = -122.403816;
+    private static final int DEFAULT_ZOOM = 10;
 
     private GoogleMap map;
     private RealmClusterManager<M> realmClusterManager;
@@ -64,12 +65,11 @@ public abstract class RealmClusterMapFragment<M extends RealmObject> extends Fra
         setUpMapIfNeeded();
 
         if (savedInstanceState != null) {
-            double latitude = savedInstanceState.getDouble(BUNDLE_LATITUDE);
-            double longitude = savedInstanceState.getDouble(BUNDLE_LONGITUDE);
-            float zoom = savedInstanceState.getFloat(BUNDLE_ZOOM);
-
-            getMap().moveCamera(
-                    CameraUpdateFactory.newLatLngZoom(new LatLng(latitude, longitude), zoom));
+            getMap().moveCamera(CameraUpdateFactory.newLatLngZoom(
+                    new LatLng(
+                            savedInstanceState.getDouble(BUNDLE_LATITUDE),
+                            savedInstanceState.getDouble(BUNDLE_LONGITUDE)),
+                    savedInstanceState.getFloat(BUNDLE_ZOOM)));
         }
     }
 
@@ -80,7 +80,6 @@ public abstract class RealmClusterMapFragment<M extends RealmObject> extends Fra
         outState.putDouble(BUNDLE_LATITUDE, cameraPosition.target.latitude);
         outState.putDouble(BUNDLE_LONGITUDE, cameraPosition.target.longitude);
         outState.putFloat(BUNDLE_ZOOM, cameraPosition.zoom);
-
         maybeCloseRealm();
     }
 
@@ -94,6 +93,27 @@ public abstract class RealmClusterMapFragment<M extends RealmObject> extends Fra
     public void onPause() {
         super.onPause();
         maybeCloseRealm();
+    }
+
+    /**
+     * Override if a specific starting latitude is desired.
+     */
+    public double getDefaultLatitude() {
+        return DEFAULT_LATITUDE;
+    }
+
+    /**
+     * Override if a specific starting longitude is desired.
+     */
+    public double getDefaultLongitude() {
+        return DEFAULT_LONGITUDE;
+    }
+
+    /**
+     * Override if a specific starting zoom level is desired.
+     */
+    public int getDefaultZoom() {
+        return DEFAULT_ZOOM;
     }
 
     private void maybeCloseRealm() {
@@ -119,7 +139,8 @@ public abstract class RealmClusterMapFragment<M extends RealmObject> extends Fra
         }
 
         getMap().moveCamera(CameraUpdateFactory.newLatLngZoom(
-                new LatLng(DEFAULT_LATITUDE, DEFAULT_LONGITUDE), 10));
+                new LatLng(getDefaultLatitude(), getDefaultLongitude()),
+                getDefaultZoom()));
 
         realmClusterManager = new RealmClusterManager<>(getActivity(), getMap());
         RealmResults<M> realmResults = realm.where(clazz).findAll();

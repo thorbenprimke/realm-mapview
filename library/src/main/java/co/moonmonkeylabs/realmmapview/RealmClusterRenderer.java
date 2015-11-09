@@ -25,7 +25,9 @@ public class RealmClusterRenderer<M extends RealmObject>
 
     @Override
     @SuppressWarnings("unchecked")
-    protected void onBeforeClusterItemRendered(RealmClusterWrapper person, MarkerOptions markerOptions) {
+    protected void onBeforeClusterItemRendered(
+            RealmClusterWrapper person,
+            MarkerOptions markerOptions) {
         super.onBeforeClusterItemRendered(person, markerOptions);
         markerOptions.title(person.getRealmRow().getString(
                 clusterManager.getTitleRealmColumnIndex()));
