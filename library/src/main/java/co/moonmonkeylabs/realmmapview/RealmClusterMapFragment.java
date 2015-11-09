@@ -60,7 +60,7 @@ public abstract class RealmClusterMapFragment<M extends RealmObject> extends Fra
     public void onViewCreated(View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         clazz = (Class<M>) getTypeArguments(RealmClusterMapFragment.class, getClass()).get(0);
-        realm = Realm.getInstance(getActivity());
+        realm = Realm.getDefaultInstance();
         setUpMapIfNeeded();
 
         if (savedInstanceState != null) {
