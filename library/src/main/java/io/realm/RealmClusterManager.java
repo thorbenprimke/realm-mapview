@@ -29,7 +29,7 @@ public class RealmClusterManager<M extends RealmObject>
 
     @Override
     public void addItems(Collection<RealmClusterWrapper<M>> items) {
-        throw new IllegalStateException("Use addRealmResultItems instead");
+        throw new IllegalStateException("Use updateRealmResults instead");
     }
 
     @Override
@@ -37,21 +37,33 @@ public class RealmClusterManager<M extends RealmObject>
         throw new IllegalStateException("Use addRealmResultItems instead");
     }
 
-    public void addRealmResultItems(RealmResults<M> realmResults) {
+    public void updateRealmResults(
+            RealmResults<M> realmResults,
+            String titleColumnName,
+            String latitudeColumnName,
+            String longitudeColumnName) {
         super.clearItems();
         final Table table = realmResults.getTable().getTable();
-        titleColumnIndex = table.getColumnIndex("name");
 
-        final long latIndex = table.getColumnIndex("latitude");
-        final ColumnType columnType = table.getColumnType(latIndex);
-        final long longIndex = table.getColumnIndex("longitude");
+        titleColumnIndex = table.getColumnIndex(titleColumnName);
+        if (titleColumnIndex == Table.NO_MATCH) {
+            throw new IllegalStateException("titleColumnName not valid.");
+        }
+        long latIndex = table.getColumnIndex(latitudeColumnName);
+        if (latIndex == Table.NO_MATCH) {
+            throw new IllegalStateException("latitudeColumnName not valid.");
+        }
+        long longIndex = table.getColumnIndex(longitudeColumnName);
+        if (longIndex == Table.NO_MATCH) {
+            throw new IllegalStateException("longitudeColumnName not valid.");
+        }
 
         List<RealmClusterWrapper<M>> wrappedItems = new ArrayList<>(realmResults.size());
         for (M realmResult : realmResults) {
             RealmClusterWrapper<M> wrappedItem = new RealmClusterWrapper<>(
                     realmResult,
-                    getValue(realmResult.row, columnType, latIndex),
-                    getValue(realmResult.row, columnType, longIndex));
+                    getValue(realmResult.row, table.getColumnType(latIndex), latIndex),
+                    getValue(realmResult.row, table.getColumnType(longIndex), longIndex));
             wrappedItems.add(wrappedItem);
         }
         super.addItems(wrappedItems);

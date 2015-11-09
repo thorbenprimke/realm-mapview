@@ -9,6 +9,7 @@ import android.view.ViewGroup;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.LatLng;
 
 import java.lang.reflect.Array;
@@ -27,7 +28,11 @@ import io.realm.RealmClusterManager;
 import io.realm.RealmObject;
 import io.realm.RealmResults;
 
-public class RealmClusterMapFragment<M extends RealmObject> extends Fragment {
+public abstract class RealmClusterMapFragment<M extends RealmObject> extends Fragment {
+
+    private static final String BUNDLE_LATITUDE = "latitude";
+    private static final String BUNDLE_LONGITUDE = "longitude";
+    private static final String BUNDLE_ZOOM = "zoom";
 
     private static final double DEFAULT_LATITUDE = 37.791116;
     private static final double DEFAULT_LONGITUDE = -122.403816;
@@ -37,6 +42,10 @@ public class RealmClusterMapFragment<M extends RealmObject> extends Fragment {
 
     private Realm realm;
     private Class<M> clazz;
+
+    protected abstract String getTitleColumnName();
+    protected abstract String getLatitudeColumnName();
+    protected abstract String getLongitudeColumnName();
 
     @Override
     public View onCreateView(
@@ -50,16 +59,14 @@ public class RealmClusterMapFragment<M extends RealmObject> extends Fragment {
     @SuppressWarnings("unchecked")
     public void onViewCreated(View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-
         clazz = (Class<M>) getTypeArguments(RealmClusterMapFragment.class, getClass()).get(0);
-
         realm = Realm.getInstance(getActivity());
-
         setUpMapIfNeeded();
+
         if (savedInstanceState != null) {
-            double latitude = savedInstanceState.getDouble("latitude");
-            double longitude = savedInstanceState.getDouble("longitude");
-            float zoom = savedInstanceState.getFloat("zoom");
+            double latitude = savedInstanceState.getDouble(BUNDLE_LATITUDE);
+            double longitude = savedInstanceState.getDouble(BUNDLE_LONGITUDE);
+            float zoom = savedInstanceState.getFloat(BUNDLE_ZOOM);
 
             getMap().moveCamera(
                     CameraUpdateFactory.newLatLngZoom(new LatLng(latitude, longitude), zoom));
@@ -69,9 +76,10 @@ public class RealmClusterMapFragment<M extends RealmObject> extends Fragment {
     @Override
     public void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
-        outState.putDouble("latitude", getMap().getCameraPosition().target.latitude);
-        outState.putDouble("longitude", getMap().getCameraPosition().target.longitude);
-        outState.putFloat("zoom", getMap().getCameraPosition().zoom);
+        final CameraPosition cameraPosition = getMap().getCameraPosition();
+        outState.putDouble(BUNDLE_LATITUDE, cameraPosition.target.latitude);
+        outState.putDouble(BUNDLE_LONGITUDE, cameraPosition.target.longitude);
+        outState.putFloat(BUNDLE_ZOOM, cameraPosition.zoom);
 
         maybeCloseRealm();
     }
@@ -101,25 +109,34 @@ public class RealmClusterMapFragment<M extends RealmObject> extends Fragment {
         if (map != null) {
             return;
         }
-        map = ((SupportMapFragment) getChildFragmentManager()
-                .findFragmentById(R.id.support_map_fragment)).getMap();
-        if (map != null) {
-            getMap().moveCamera(CameraUpdateFactory.newLatLngZoom(
-                    new LatLng(DEFAULT_LATITUDE, DEFAULT_LONGITUDE), 10));
-
-            realmClusterManager = new RealmClusterManager<>(getActivity(), getMap());
-            RealmResults<M> realmResults = realm.where(clazz).findAll();
-            realmClusterManager.addRealmResultItems(realmResults);
-
-            realmClusterManager.setRenderer(
-                    new RealmClusterRenderer(getActivity(), getMap(), realmClusterManager));
-            getMap().setOnCameraChangeListener(realmClusterManager);
-            getMap().setOnMarkerClickListener(realmClusterManager);
-            getMap().setOnInfoWindowClickListener(realmClusterManager);
+        Fragment fragment = getChildFragmentManager().findFragmentById(R.id.support_map_fragment);
+        if (fragment == null) {
+            throw new IllegalStateException("Map fragment not found.");
         }
+        map = ((SupportMapFragment) fragment).getMap();
+        if (map == null) {
+            throw new IllegalStateException("Map not found in fragment.");
+        }
+
+        getMap().moveCamera(CameraUpdateFactory.newLatLngZoom(
+                new LatLng(DEFAULT_LATITUDE, DEFAULT_LONGITUDE), 10));
+
+        realmClusterManager = new RealmClusterManager<>(getActivity(), getMap());
+        RealmResults<M> realmResults = realm.where(clazz).findAll();
+        realmClusterManager.updateRealmResults(
+                realmResults,
+                getTitleColumnName(),
+                getLatitudeColumnName(),
+                getLongitudeColumnName());
+
+        realmClusterManager.setRenderer(
+                new RealmClusterRenderer(getActivity(), getMap(), realmClusterManager));
+        getMap().setOnCameraChangeListener(realmClusterManager);
+        getMap().setOnMarkerClickListener(realmClusterManager);
+        getMap().setOnInfoWindowClickListener(realmClusterManager);
     }
 
-    protected GoogleMap getMap() {
+    private GoogleMap getMap() {
         setUpMapIfNeeded();
         return map;
     }
