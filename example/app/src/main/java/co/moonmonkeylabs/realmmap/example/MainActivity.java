@@ -18,7 +18,7 @@ public class MainActivity extends AppCompatActivity {
 
     private Realm realm;
 
-    private RealmClusterMapFragment<Business> realmClusterMapFragment;
+    private BusinessRealmClusterMapFragment realmClusterMapFragment;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -34,16 +34,11 @@ public class MainActivity extends AppCompatActivity {
         realm.commitTransaction();
 
         if (savedInstanceState == null) {
-            realmClusterMapFragment = new RealmClusterMapFragment<Business>();
-            realmClusterMapFragment.setRealmResults(realm.where(Business.class).findAll());
+            realmClusterMapFragment = new BusinessRealmClusterMapFragment();
             getSupportFragmentManager()
                     .beginTransaction()
                     .add(R.id.container, realmClusterMapFragment, "realmMap")
                     .commit();
-        } else {
-            realmClusterMapFragment = (RealmClusterMapFragment)
-                    getSupportFragmentManager().findFragmentByTag("realmMap");
-            realmClusterMapFragment.setRealmResults(realm.where(Business.class).findAll());
         }
     }
 
