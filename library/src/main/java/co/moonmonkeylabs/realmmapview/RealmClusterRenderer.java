@@ -1,4 +1,4 @@
-package co.moonmonkeylabs.realmmap.example;
+package co.moonmonkeylabs.realmmapview;
 
 import android.content.Context;
 

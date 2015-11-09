@@ -1,4 +1,4 @@
-package co.moonmonkeylabs.realmmap.example;
+package co.moonmonkeylabs.realmmapview;
 
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
@@ -21,6 +21,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import co.moonmonkeylabs.realmmap.R;
 import io.realm.Realm;
 import io.realm.RealmClusterManager;
 import io.realm.RealmObject;
