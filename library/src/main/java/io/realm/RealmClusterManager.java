@@ -14,6 +14,11 @@ import io.realm.internal.ColumnType;
 import io.realm.internal.Row;
 import io.realm.internal.Table;
 
+/**
+ * An implementation of the {@link ClusterManager} that handles processing a {@link RealmResults}
+ * list and lookup of the respective columnName/Index to query the lat/long in order to store them
+ * in the {@link RealmClusterWrapper}.
+ */
 public class RealmClusterManager<M extends RealmObject>
         extends ClusterManager<RealmClusterWrapper<M>> {
 

@@ -11,6 +11,7 @@ import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.maps.android.clustering.ClusterManager;
 
 import java.lang.reflect.Array;
 import java.lang.reflect.GenericArrayType;
@@ -28,6 +29,14 @@ import io.realm.RealmClusterManager;
 import io.realm.RealmObject;
 import io.realm.RealmResults;
 
+/**
+ * A fragment that wraps a {@link SupportMapFragment} with added {@link ClusterManager} support and
+ * built-in support for querying and rendering a {@link Realm} result list.
+ *
+ * Any subclasses must provide a class that extends {@link RealmObject} as the generic type and
+ * implemented the three abstract methods that provide the title, latitude and longitude column
+ * names.
+ */
 public abstract class RealmClusterMapFragment<M extends RealmObject> extends Fragment {
 
     private static final String BUNDLE_LATITUDE = "latitude";
@@ -39,14 +48,8 @@ public abstract class RealmClusterMapFragment<M extends RealmObject> extends Fra
     private static final int DEFAULT_ZOOM = 10;
 
     private GoogleMap map;
-    private RealmClusterManager<M> realmClusterManager;
-
     private Realm realm;
     private Class<M> clazz;
-
-    protected abstract String getTitleColumnName();
-    protected abstract String getLatitudeColumnName();
-    protected abstract String getLongitudeColumnName();
 
     @Override
     public View onCreateView(
@@ -96,6 +99,25 @@ public abstract class RealmClusterMapFragment<M extends RealmObject> extends Fra
     }
 
     /**
+     * Needs to be implemented and provide the column name of the column that should be rendered
+     * when a marker is clicked. The column type should be string.
+     */
+    protected abstract String getTitleColumnName();
+
+    /**
+     * Needs to be implemented and provide the column name of the column that contains the latitude
+     * value for the extended {@link RealmObject}.
+     */
+    protected abstract String getLatitudeColumnName();
+
+
+    /**
+     * Needs to be implemented and provide the column name of the column that contains the longitude
+     * value for the extended {@link RealmObject}.
+     */
+    protected abstract String getLongitudeColumnName();
+
+    /**
      * Override if a specific starting latitude is desired.
      */
     public double getDefaultLatitude() {
@@ -142,7 +164,8 @@ public abstract class RealmClusterMapFragment<M extends RealmObject> extends Fra
                 new LatLng(getDefaultLatitude(), getDefaultLongitude()),
                 getDefaultZoom()));
 
-        realmClusterManager = new RealmClusterManager<>(getActivity(), getMap());
+        RealmClusterManager<M> realmClusterManager =
+                new RealmClusterManager<>(getActivity(), getMap());
         RealmResults<M> realmResults = realm.where(clazz).findAll();
         realmClusterManager.updateRealmResults(
                 realmResults,
