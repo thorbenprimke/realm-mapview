@@ -16,6 +16,8 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // Realm reset/defaultConfig settings/data loading needs to happen before the view is set
+        // in order for the map fragment to read the Realm when the data is already present.
         resetRealm();
         Realm.setDefaultConfiguration(getRealmConfig());
         loadDataIntoRealm();
