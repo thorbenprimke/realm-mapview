@@ -31,10 +31,10 @@ public class RealmClusterRenderer<M extends RealmObject>
     @Override
     @SuppressWarnings("unchecked")
     protected void onBeforeClusterItemRendered(
-            RealmClusterWrapper person,
+            RealmClusterWrapper item,
             MarkerOptions markerOptions) {
-        super.onBeforeClusterItemRendered(person, markerOptions);
-        markerOptions.title(person.getRealmRow().getString(
+        super.onBeforeClusterItemRendered(item, markerOptions);
+        markerOptions.title(item.getRealmRow().getString(
                 clusterManager.getTitleRealmColumnIndex()));
     }
 }
