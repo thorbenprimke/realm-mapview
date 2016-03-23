@@ -10,7 +10,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
-import io.realm.internal.ColumnType;
 import io.realm.internal.Row;
 import io.realm.internal.Table;
 
