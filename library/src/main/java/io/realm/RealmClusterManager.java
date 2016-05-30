@@ -10,7 +10,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
-import io.realm.internal.ColumnType;
+import io.realm.internal.RealmObjectProxy;
 import io.realm.internal.Row;
 import io.realm.internal.Table;
 
@@ -64,28 +64,31 @@ public class RealmClusterManager<M extends RealmObject>
         }
 
         List<RealmClusterWrapper<M>> wrappedItems = new ArrayList<>(realmResults.size());
-        for (M realmResult : realmResults) {
+        for (int i = 0; i < realmResults.size(); i++) {
+            M realmResult = realmResults.get(i);
+            Row row = ((RealmObjectProxy) realmResult).realmGet$proxyState().getRow$realm();
             RealmClusterWrapper<M> wrappedItem = new RealmClusterWrapper<>(
                     realmResult,
-                    getValue(realmResult.row, table.getColumnType(latIndex), latIndex),
-                    getValue(realmResult.row, table.getColumnType(longIndex), longIndex));
+                    getTitle(row, titleColumnIndex),
+                    getValue(row, table.getColumnType(latIndex), latIndex),
+                    getValue(row, table.getColumnType(longIndex), longIndex));
             wrappedItems.add(wrappedItem);
         }
         super.addItems(wrappedItems);
     }
 
-    private double getValue(Row row, ColumnType columnType, long columnIndex) {
-        if (columnType == ColumnType.DOUBLE) {
+    private double getValue(Row row, RealmFieldType columnType, long columnIndex) {
+        if (columnType == RealmFieldType.DOUBLE) {
             return row.getDouble(columnIndex);
-        } else if (columnType == ColumnType.FLOAT) {
+        } else if (columnType == RealmFieldType.FLOAT) {
             return row.getFloat(columnIndex);
-        } else if (columnType == ColumnType.INTEGER) {
+        } else if (columnType == RealmFieldType.INTEGER) {
             return row.getLong(columnIndex);
         }
         throw new IllegalStateException("The value type needs to be of double, float or int");
     }
 
-    public long getTitleRealmColumnIndex() {
-        return titleColumnIndex;
+    public String getTitle(Row row, long columnIndex) {
+        return row.getString(columnIndex);
     }
 }

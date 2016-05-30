@@ -34,7 +34,6 @@ public class RealmClusterRenderer<M extends RealmObject>
             RealmClusterWrapper item,
             MarkerOptions markerOptions) {
         super.onBeforeClusterItemRendered(item, markerOptions);
-        markerOptions.title(item.getRealmRow().getString(
-                clusterManager.getTitleRealmColumnIndex()));
+        markerOptions.title(item.getTitle());
     }
 }
