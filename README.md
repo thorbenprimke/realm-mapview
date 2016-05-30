@@ -13,7 +13,7 @@ A simple, yet powerful wrapper around the `SupportMapFragment` with support for 
 
 ```
 	dependencies {
-	        compile 'com.github.thorbenprimke:realm-mapview:0.9.1'
+	        compile 'com.github.thorbenprimke:realm-mapview:0.9.2'
 	}
 ```
 

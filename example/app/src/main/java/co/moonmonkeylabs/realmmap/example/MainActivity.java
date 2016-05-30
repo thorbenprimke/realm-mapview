@@ -34,7 +34,7 @@ public class MainActivity extends AppCompatActivity {
     private RealmConfiguration getRealmConfig() {
         return new RealmConfiguration
                 .Builder(this)
-                .setModules(Realm.getDefaultModule(), new SFRestaurantModule())
+                .modules(Realm.getDefaultModule(), new SFRestaurantModule())
                 .build();
     }
 }
