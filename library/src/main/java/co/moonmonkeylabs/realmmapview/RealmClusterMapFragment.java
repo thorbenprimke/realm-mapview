@@ -1,13 +1,16 @@
 package co.moonmonkeylabs.realmmapview;
 
 import android.os.Bundle;
+import android.support.annotation.NonNull;
 import android.support.v4.app.Fragment;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
+import com.google.android.gms.maps.CameraUpdate;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
+import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.LatLng;
@@ -37,7 +40,7 @@ import io.realm.RealmResults;
  * implemented the three abstract methods that provide the title, latitude and longitude column
  * names.
  */
-public abstract class RealmClusterMapFragment<M extends RealmObject> extends Fragment {
+public abstract class RealmClusterMapFragment<M extends RealmObject> extends Fragment implements OnMapReadyCallback {
 
     private static final String BUNDLE_LATITUDE = "latitude";
     private static final String BUNDLE_LONGITUDE = "longitude";
@@ -50,6 +53,7 @@ public abstract class RealmClusterMapFragment<M extends RealmObject> extends Fra
     private GoogleMap map;
     private Realm realm;
     private Class<M> clazz;
+    private CameraUpdate savedCamera;
 
     @Override
     public View onCreateView(
@@ -65,31 +69,31 @@ public abstract class RealmClusterMapFragment<M extends RealmObject> extends Fra
         super.onViewCreated(view, savedInstanceState);
         clazz = (Class<M>) getTypeArguments(RealmClusterMapFragment.class, getClass()).get(0);
         realm = Realm.getDefaultInstance();
-        setUpMapIfNeeded();
 
         if (savedInstanceState != null) {
-            getMap().moveCamera(CameraUpdateFactory.newLatLngZoom(
+            // Restoring camera position/zoom has to be postponed until Map is ready
+            savedCamera = CameraUpdateFactory.newLatLngZoom(
                     new LatLng(
                             savedInstanceState.getDouble(BUNDLE_LATITUDE),
                             savedInstanceState.getDouble(BUNDLE_LONGITUDE)),
-                    savedInstanceState.getFloat(BUNDLE_ZOOM)));
+                            savedInstanceState.getFloat(BUNDLE_ZOOM));
         }
+
+        setUpMapIfNeeded();
     }
 
     @Override
     public void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
-        final CameraPosition cameraPosition = getMap().getCameraPosition();
-        outState.putDouble(BUNDLE_LATITUDE, cameraPosition.target.latitude);
-        outState.putDouble(BUNDLE_LONGITUDE, cameraPosition.target.longitude);
-        outState.putFloat(BUNDLE_ZOOM, cameraPosition.zoom);
-        maybeCloseRealm();
-    }
 
-    @Override
-    public void onResume() {
-        super.onResume();
-        setUpMapIfNeeded();
+        if (map != null) {
+            final CameraPosition cameraPosition = map.getCameraPosition();
+            outState.putDouble(BUNDLE_LATITUDE, cameraPosition.target.latitude);
+            outState.putDouble(BUNDLE_LONGITUDE, cameraPosition.target.longitude);
+            outState.putFloat(BUNDLE_ZOOM, cameraPosition.zoom);
+        }
+
+        maybeCloseRealm();
     }
 
     @Override
@@ -146,26 +150,26 @@ public abstract class RealmClusterMapFragment<M extends RealmObject> extends Fra
         realm = null;
     }
 
-    @SuppressWarnings("unchecked")
     private void setUpMapIfNeeded() {
         if (map != null) {
             return;
         }
+
         Fragment fragment = getChildFragmentManager().findFragmentById(R.id.support_map_fragment);
         if (fragment == null) {
             throw new IllegalStateException("Map fragment not found.");
         }
-        map = ((SupportMapFragment) fragment).getMap();
-        if (map == null) {
-            throw new IllegalStateException("Map not found in fragment.");
-        }
 
-        getMap().moveCamera(CameraUpdateFactory.newLatLngZoom(
-                new LatLng(getDefaultLatitude(), getDefaultLongitude()),
-                getDefaultZoom()));
+        ((SupportMapFragment) fragment).getMapAsync(this);
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public void onMapReady(@NonNull GoogleMap map) {
+        this.map = map;
 
         RealmClusterManager<M> realmClusterManager =
-                new RealmClusterManager<>(getActivity(), getMap());
+                new RealmClusterManager<>(getActivity(), map);
         RealmResults<M> realmResults = realm.where(clazz).findAll();
         realmClusterManager.updateRealmResults(
                 realmResults,
@@ -174,15 +178,22 @@ public abstract class RealmClusterMapFragment<M extends RealmObject> extends Fra
                 getLongitudeColumnName());
 
         realmClusterManager.setRenderer(
-                new RealmClusterRenderer(getActivity(), getMap(), realmClusterManager));
-        getMap().setOnCameraChangeListener(realmClusterManager);
-        getMap().setOnMarkerClickListener(realmClusterManager);
-        getMap().setOnInfoWindowClickListener(realmClusterManager);
-    }
+                new RealmClusterRenderer(getActivity(), map, realmClusterManager));
 
-    private GoogleMap getMap() {
-        setUpMapIfNeeded();
-        return map;
+        map.setOnCameraIdleListener(realmClusterManager);
+        map.setOnMarkerClickListener(realmClusterManager);
+        map.setOnInfoWindowClickListener(realmClusterManager);
+
+        if (savedCamera != null) {
+            // Restore camera position/zoom
+            map.moveCamera(savedCamera);
+            savedCamera = null;
+        } else {
+            // Configure default camera position/zoom
+            map.moveCamera(CameraUpdateFactory.newLatLngZoom(
+                    new LatLng(getDefaultLatitude(), getDefaultLongitude()),
+                    getDefaultZoom()));
+        }
     }
 
     //
@@ -227,7 +238,7 @@ public abstract class RealmClusterMapFragment<M extends RealmObject> extends Fra
     private static <T> List<Class<?>> getTypeArguments(
             Class<T> baseClass, Class<? extends T> childClass)
     {
-        Map<Type, Type> resolvedTypes = new HashMap<Type, Type>();
+        Map<Type, Type> resolvedTypes = new HashMap<>();
         Type type = childClass;
         // start walking up the inheritance hierarchy until we hit baseClass
         while (!getClass(type).equals(baseClass)) {
@@ -258,7 +269,7 @@ public abstract class RealmClusterMapFragment<M extends RealmObject> extends Fra
         } else {
             actualTypeArguments = ((ParameterizedType) type).getActualTypeArguments();
         }
-        List<Class<?>> typeArgumentsAsClasses = new ArrayList<Class<?>>();
+        List<Class<?>> typeArgumentsAsClasses = new ArrayList<>();
         // resolve types by chasing down type variables.
         for (Type baseType : actualTypeArguments) {
             while (resolvedTypes.containsKey(baseType)) {

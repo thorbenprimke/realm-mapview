@@ -22,8 +22,6 @@ import io.realm.internal.Table;
 public class RealmClusterManager<M extends RealmObject>
         extends ClusterManager<RealmClusterWrapper<M>> {
 
-    private long titleColumnIndex = -1;
-
     public RealmClusterManager(Context context, GoogleMap map) {
         super(context, map);
     }
@@ -50,7 +48,7 @@ public class RealmClusterManager<M extends RealmObject>
         super.clearItems();
         final Table table = realmResults.getTable().getTable();
 
-        titleColumnIndex = table.getColumnIndex(titleColumnName);
+        long titleColumnIndex = table.getColumnIndex(titleColumnName);
         if (titleColumnIndex == Table.NO_MATCH) {
             throw new IllegalStateException("titleColumnName not valid.");
         }

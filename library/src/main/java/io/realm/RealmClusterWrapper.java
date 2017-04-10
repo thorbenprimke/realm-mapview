@@ -32,4 +32,9 @@ public class RealmClusterWrapper<T extends RealmObject> implements ClusterItem {
     public String getTitle() {
         return title;
     }
+
+    @Override
+    public String getSnippet() {
+        return null;
+    }
 }
