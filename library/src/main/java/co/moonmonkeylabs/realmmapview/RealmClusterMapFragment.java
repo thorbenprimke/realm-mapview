@@ -22,7 +22,6 @@ import com.google.maps.android.clustering.view.ClusterRenderer;
 import com.google.maps.android.clustering.view.DefaultClusterRenderer;
 
 import co.moonmonkeylabs.realmmap.R;
-import io.realm.Realm;
 import io.realm.RealmChangeListener;
 import io.realm.RealmClusterItem;
 import io.realm.RealmClusterManager;
@@ -31,11 +30,9 @@ import io.realm.RealmResults;
 
 /**
  * A fragment that wraps a {@link SupportMapFragment} with added {@link ClusterManager} support and
- * built-in support for querying and rendering a {@link Realm} result list.
- *
- * Any subclasses must provide a class that extends {@link RealmObject} as the generic type and
- * implemented the three abstract methods that provide the title, latitude and longitude column
- * names.
+ * built-in support for rendering a {@link RealmResults} and auto-updating.
+ * <p>
+ * Subclasses must provide a RealmResults through the {@link #getRealmResults()} abstract method.
  */
 public abstract class RealmClusterMapFragment<M extends RealmObject & ClusterItem> extends Fragment implements OnMapReadyCallback {
 
@@ -43,10 +40,10 @@ public abstract class RealmClusterMapFragment<M extends RealmObject & ClusterIte
     private static final String BUNDLE_LONGITUDE = "longitude";
     private static final String BUNDLE_ZOOM = "zoom";
 
-    private static final int DEFAULT_MIN_CLUSTER_SIZE = 9;
-    private static final double DEFAULT_LATITUDE = 37.791116;
-    private static final double DEFAULT_LONGITUDE = -122.403816;
-    private static final int DEFAULT_ZOOM = 10;
+    private static final int DEFAULT_MIN_CLUSTER_SIZE = 4;
+    private static final double DEFAULT_LATITUDE = 29.7530955;
+    private static final double DEFAULT_LONGITUDE = -95.3600552;
+    private static final float DEFAULT_ZOOM = 10;
 
     private RealmResults<M> realmResults;
     private RealmChangeListener<RealmResults<M>> changeListener;
@@ -117,9 +114,35 @@ public abstract class RealmClusterMapFragment<M extends RealmObject & ClusterIte
     protected abstract RealmResults<M> getRealmResults();
 
     /**
-     * Override to customize the map, such as enabling/disabling UI controls and gestures.
+     * Override to set custom options for the map before it is created.
+     * UI options such as enabling/disabling controls and gestures go here. For a full list of
+     * options, see <a href="https://goo.gl/HP1bjC">GoogleMapOptions documentation</a>.
+     * <p>
+     * By default this method does nothing.
      */
     protected void configureMapOptions(GoogleMapOptions options) {}
+
+    /**
+     * Override to customize the map after it is ready.
+     * Add items, set the map type, move the camera, and enable user location here.
+     * For a full list of options, see <a href="https://goo.gl/pWVYDT">GoogleMap documentation</a>.
+     * <p>
+     * By default this will move the camera to either the location set in
+     * {@link #onSaveInstanceState(Bundle)} or the default location if a saved instance state is
+     * unavailable. If you wish to keep this behavior, call super method before configuring further.
+     */
+    public void configureMap(GoogleMap googleMap) {
+        if (savedCamera != null) {
+            // Restore camera position/zoom
+            map.moveCamera(savedCamera);
+            savedCamera = null;
+        } else {
+            // Configure default camera position/zoom
+            map.moveCamera(CameraUpdateFactory.newLatLngZoom(
+                    new LatLng(getDefaultLatitude(), getDefaultLongitude()),
+                    getDefaultZoom()));
+        }
+    }
 
     /**
      * Override if a custom {@link ClusterRenderer} is desired.
@@ -137,7 +160,8 @@ public abstract class RealmClusterMapFragment<M extends RealmObject & ClusterIte
     }
 
     /**
-     * Override if a specific minimum cluster size is desired.
+     * Override if a specific minimum cluster size is desired. This does not apply if
+     * {@link #getClusterRenderer} has been overridden.
      */
     public int getDefaultMinClusterSize() {
         return DEFAULT_MIN_CLUSTER_SIZE;
@@ -160,7 +184,7 @@ public abstract class RealmClusterMapFragment<M extends RealmObject & ClusterIte
     /**
      * Override if a specific starting zoom level is desired.
      */
-    public int getDefaultZoom() {
+    public float getDefaultZoom() {
         return DEFAULT_ZOOM;
     }
 
@@ -173,7 +197,6 @@ public abstract class RealmClusterMapFragment<M extends RealmObject & ClusterIte
         }
     }
 
-    @SuppressWarnings("unchecked")
     private void setUpMapIfNeeded() {
         if (map != null) {
             return;
@@ -181,8 +204,12 @@ public abstract class RealmClusterMapFragment<M extends RealmObject & ClusterIte
         mapFragment.getMapAsync(this);
     }
 
+    /**
+     * Sets up clustering, autoUpdate, and listeners.
+     * If additional configuration to the map is required, override {@link #configureMap(GoogleMap)}.
+     */
     @Override
-    public void onMapReady(GoogleMap googleMap) {
+    public final void onMapReady(GoogleMap googleMap) {
         if (googleMap == null) {
             throw new IllegalStateException("Map not found in fragment.");
         }
@@ -211,15 +238,6 @@ public abstract class RealmClusterMapFragment<M extends RealmObject & ClusterIte
         map.setOnMarkerClickListener(manager);
         map.setOnInfoWindowClickListener(manager);
 
-        if (savedCamera != null) {
-            // Restore camera position/zoom
-            map.moveCamera(savedCamera);
-            savedCamera = null;
-        } else {
-            // Configure default camera position/zoom
-            map.moveCamera(CameraUpdateFactory.newLatLngZoom(
-                    new LatLng(getDefaultLatitude(), getDefaultLongitude()),
-                    getDefaultZoom()));
-        }
+        configureMap(map);
     }
 }
