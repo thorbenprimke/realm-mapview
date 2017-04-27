@@ -10,18 +10,19 @@ import com.google.maps.android.clustering.ClusterItem;
  * The title is also cached, since the realmObject's row can no longer be accessed directly / via
  * index.
  */
-public class RealmClusterWrapper<T extends RealmObject> implements ClusterItem {
+public class RealmClusterItem<T extends RealmObject & ClusterItem> implements ClusterItem {
 
     private T realmObject;
 
     private LatLng latLng;
-
     private String title;
+    private String snippet;
 
-    public RealmClusterWrapper(T realmObject, String title, double latitude, double longitude) {
+    public RealmClusterItem(T realmObject) {
         this.realmObject = realmObject;
-        this.title = title;
-        latLng = new LatLng(latitude, longitude);
+        this.title = realmObject.getTitle();
+        this.latLng = realmObject.getPosition();
+        this.snippet = realmObject.getSnippet();
     }
 
     @Override
@@ -29,7 +30,13 @@ public class RealmClusterWrapper<T extends RealmObject> implements ClusterItem {
         return latLng;
     }
 
+    @Override
     public String getTitle() {
         return title;
+    }
+
+    @Override
+    public String getSnippet() {
+        return snippet;
     }
 }

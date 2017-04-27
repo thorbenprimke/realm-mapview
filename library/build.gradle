@@ -20,7 +20,6 @@ android {
 }
 
 dependencies {
-    compile 'com.android.support:recyclerview-v7:25.3.0'
     compile 'com.google.maps.android:android-maps-utils:0.5'
     compile 'com.google.android.gms:play-services-maps:10.2.1'
 }
