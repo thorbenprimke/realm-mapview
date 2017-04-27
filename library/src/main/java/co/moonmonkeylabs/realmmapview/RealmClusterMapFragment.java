@@ -5,10 +5,12 @@ import android.support.v4.app.Fragment;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.FrameLayout;
 
 import com.google.android.gms.maps.CameraUpdate;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
+import com.google.android.gms.maps.GoogleMapOptions;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.CameraPosition;
@@ -43,6 +45,7 @@ public abstract class RealmClusterMapFragment<M extends RealmObject & ClusterIte
     private static final double DEFAULT_LONGITUDE = -122.403816;
     private static final int DEFAULT_ZOOM = 10;
 
+    private SupportMapFragment mapFragment;
     private GoogleMap map;
     private CameraUpdate savedCamera;
 
@@ -51,7 +54,13 @@ public abstract class RealmClusterMapFragment<M extends RealmObject & ClusterIte
             LayoutInflater inflater,
             ViewGroup container,
             Bundle savedInstanceState) {
-        return inflater.inflate(R.layout.realm_cluster_map_fragment, container, false);
+        FrameLayout layout = (FrameLayout)
+                inflater.inflate(R.layout.realm_cluster_map_fragment, container, false);
+        GoogleMapOptions options = new GoogleMapOptions();
+        configureMapOptions(options);
+        mapFragment = SupportMapFragment.newInstance(options);
+        getChildFragmentManager().beginTransaction().replace(layout.getId(), mapFragment).commit();
+        return layout;
     }
 
     @Override
@@ -96,6 +105,11 @@ public abstract class RealmClusterMapFragment<M extends RealmObject & ClusterIte
     /**
      * Override if a specific minimum cluster size is desired.
      */
+    public void configureMapOptions(GoogleMapOptions options) {}
+
+    /**
+     * Override if a specific minimum cluster size is desired.
+     */
     public int getDefaultMinClusterSize() {
         return DEFAULT_MIN_CLUSTER_SIZE;
     }
@@ -126,12 +140,7 @@ public abstract class RealmClusterMapFragment<M extends RealmObject & ClusterIte
         if (map != null) {
             return;
         }
-        SupportMapFragment fragment = (SupportMapFragment)
-                getChildFragmentManager().findFragmentById(R.id.support_map_fragment);
-        if (fragment == null) {
-            throw new IllegalStateException("Map fragment not found.");
-        }
-        fragment.getMapAsync(this);
+        mapFragment.getMapAsync(this);
     }
 
     @SuppressWarnings("MissingPermission")
