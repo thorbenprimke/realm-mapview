@@ -1,5 +1,6 @@
 package co.moonmonkeylabs.realmmapview;
 
+import android.content.Context;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
 import android.view.LayoutInflater;
@@ -17,10 +18,12 @@ import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.maps.android.clustering.ClusterItem;
 import com.google.maps.android.clustering.ClusterManager;
+import com.google.maps.android.clustering.view.ClusterRenderer;
 import com.google.maps.android.clustering.view.DefaultClusterRenderer;
 
 import co.moonmonkeylabs.realmmap.R;
 import io.realm.Realm;
+import io.realm.RealmChangeListener;
 import io.realm.RealmClusterItem;
 import io.realm.RealmClusterManager;
 import io.realm.RealmObject;
@@ -45,9 +48,12 @@ public abstract class RealmClusterMapFragment<M extends RealmObject & ClusterIte
     private static final double DEFAULT_LONGITUDE = -122.403816;
     private static final int DEFAULT_ZOOM = 10;
 
+    private RealmResults<M> realmResults;
+    private RealmChangeListener<RealmResults<M>> changeListener;
     private SupportMapFragment mapFragment;
     private GoogleMap map;
     private CameraUpdate savedCamera;
+    private RealmClusterManager<M> manager;
 
     @Override
     public View onCreateView(
@@ -96,6 +102,14 @@ public abstract class RealmClusterMapFragment<M extends RealmObject & ClusterIte
         setUpMapIfNeeded();
     }
 
+    @Override
+    public void onDestroyView() {
+        if (realmResults != null && changeListener != null) {
+            realmResults.removeChangeListener(changeListener);
+        }
+        super.onDestroyView();
+    }
+
     /**
      * Provides the RealmObjects to be displayed on the map. The RealmObjects must implement
      * {@link ClusterItem}.
@@ -103,9 +117,20 @@ public abstract class RealmClusterMapFragment<M extends RealmObject & ClusterIte
     protected abstract RealmResults<M> getRealmResults();
 
     /**
-     * Override if a specific minimum cluster size is desired.
+     * Override to customize the map, such as enabling/disabling UI controls and gestures.
      */
-    public void configureMapOptions(GoogleMapOptions options) {}
+    protected void configureMapOptions(GoogleMapOptions options) {}
+
+    /**
+     * Override if a custom {@link ClusterRenderer} is desired.
+     */
+    protected ClusterRenderer<RealmClusterItem<M>> getClusterRenderer
+    (Context context, GoogleMap map,ClusterManager<RealmClusterItem<M>> manager) {
+        DefaultClusterRenderer<RealmClusterItem<M>> renderer =
+                new DefaultClusterRenderer<>(context, map, manager);
+        renderer.setMinClusterSize(getDefaultMinClusterSize());
+        return renderer;
+    }
 
     /**
      * Override if a specific minimum cluster size is desired.
@@ -135,6 +160,15 @@ public abstract class RealmClusterMapFragment<M extends RealmObject & ClusterIte
         return DEFAULT_ZOOM;
     }
 
+    /**
+     * Clears and reloads all map items.
+     */
+    public void notifyDataSetChanged() {
+        if (manager != null) {
+            manager.updateRealmResults(realmResults);
+        }
+    }
+
     @SuppressWarnings("unchecked")
     private void setUpMapIfNeeded() {
         if (map != null) {
@@ -143,7 +177,6 @@ public abstract class RealmClusterMapFragment<M extends RealmObject & ClusterIte
         mapFragment.getMapAsync(this);
     }
 
-    @SuppressWarnings("MissingPermission")
     @Override
     public void onMapReady(GoogleMap googleMap) {
         if (googleMap == null) {
@@ -152,21 +185,27 @@ public abstract class RealmClusterMapFragment<M extends RealmObject & ClusterIte
         map = googleMap;
 
         // Set up cluster manager and renderer
-        RealmClusterManager<M> realmClusterManager =
-                new RealmClusterManager<>(getActivity(), map);
+        manager = new RealmClusterManager<>(getActivity(), map);
+        manager.setRenderer(getClusterRenderer(getActivity(), map, manager));
 
-        DefaultClusterRenderer<RealmClusterItem<M>> renderer =
-                new DefaultClusterRenderer<>(getActivity(), map, realmClusterManager);
-        renderer.setMinClusterSize(getDefaultMinClusterSize());
-        realmClusterManager.setRenderer(renderer);
+        realmResults = getRealmResults();
+        manager.updateRealmResults(realmResults);
 
-        RealmResults<M> realmResults = getRealmResults();
-        realmClusterManager.updateRealmResults(realmResults);
+        // Set change listener on results
+        if (changeListener == null) {
+            changeListener = new RealmChangeListener<RealmResults<M>>() {
+                @Override
+                public void onChange(RealmResults<M> element) {
+                    notifyDataSetChanged();
+                }
+            };
+            realmResults.addChangeListener(changeListener);
+        }
 
         // Set up map callbacks
-        map.setOnCameraIdleListener(realmClusterManager);
-        map.setOnMarkerClickListener(realmClusterManager);
-        map.setOnInfoWindowClickListener(realmClusterManager);
+        map.setOnCameraIdleListener(manager);
+        map.setOnMarkerClickListener(manager);
+        map.setOnInfoWindowClickListener(manager);
 
         if (savedCamera != null) {
             // Restore camera position/zoom
