@@ -13,8 +13,7 @@ import java.util.List;
 
 /**
  * An implementation of the {@link ClusterManager} that handles processing a {@link RealmResults}
- * list and lookup of the respective columnName/Index to query the lat/long in order to store them
- * in the {@link RealmClusterItem}.
+ * and converting the RealmObjects into {@link RealmClusterItem}s for background thread use.
  */
 public class RealmClusterManager<M extends RealmObject & ClusterItem>
         extends ClusterManager<RealmClusterItem<M>> {

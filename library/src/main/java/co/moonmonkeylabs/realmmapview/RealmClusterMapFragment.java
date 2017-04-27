@@ -6,14 +6,13 @@ import android.support.v4.app.Fragment;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.FrameLayout;
 
 import com.google.android.gms.maps.CameraUpdate;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.GoogleMapOptions;
+import com.google.android.gms.maps.MapView;
 import com.google.android.gms.maps.OnMapReadyCallback;
-import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.maps.android.clustering.ClusterItem;
@@ -21,7 +20,6 @@ import com.google.maps.android.clustering.ClusterManager;
 import com.google.maps.android.clustering.view.ClusterRenderer;
 import com.google.maps.android.clustering.view.DefaultClusterRenderer;
 
-import co.moonmonkeylabs.realmmap.R;
 import io.realm.RealmChangeListener;
 import io.realm.RealmClusterItem;
 import io.realm.RealmClusterManager;
@@ -29,12 +27,14 @@ import io.realm.RealmObject;
 import io.realm.RealmResults;
 
 /**
- * A fragment that wraps a {@link SupportMapFragment} with added {@link ClusterManager} support and
- * built-in support for rendering a {@link RealmResults} and auto-updating.
+ * A fragment that wraps a {@link MapView} with added {@link ClusterManager} support and
+ * built-in support for rendering a {@link RealmResults} with real-time updates.
  * <p>
  * Subclasses must provide a RealmResults through the {@link #getRealmResults()} abstract method.
  */
-public abstract class RealmClusterMapFragment<M extends RealmObject & ClusterItem> extends Fragment implements OnMapReadyCallback {
+@SuppressWarnings("unused")
+public abstract class RealmClusterMapFragment<M extends RealmObject & ClusterItem> extends Fragment
+        implements OnMapReadyCallback {
 
     private static final String BUNDLE_LATITUDE = "latitude";
     private static final String BUNDLE_LONGITUDE = "longitude";
@@ -47,7 +47,7 @@ public abstract class RealmClusterMapFragment<M extends RealmObject & ClusterIte
 
     private RealmResults<M> realmResults;
     private RealmChangeListener<RealmResults<M>> changeListener;
-    private SupportMapFragment mapFragment;
+    private MapView mapView;
     private GoogleMap map;
     private CameraUpdate savedCamera;
     private RealmClusterManager<M> manager;
@@ -57,17 +57,14 @@ public abstract class RealmClusterMapFragment<M extends RealmObject & ClusterIte
             LayoutInflater inflater,
             ViewGroup container,
             Bundle savedInstanceState) {
-        FrameLayout layout = (FrameLayout)
-                inflater.inflate(R.layout.realm_cluster_map_fragment, container, false);
         GoogleMapOptions options = new GoogleMapOptions();
         configureMapOptions(options);
-        mapFragment = SupportMapFragment.newInstance(options);
-        getChildFragmentManager().beginTransaction().replace(layout.getId(), mapFragment).commit();
-        return layout;
+        mapView = new MapView(getContext(), options);
+        mapView.onCreate(savedInstanceState);
+        return mapView;
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public void onViewCreated(View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
@@ -78,8 +75,6 @@ public abstract class RealmClusterMapFragment<M extends RealmObject & ClusterIte
                             savedInstanceState.getDouble(BUNDLE_LONGITUDE)),
                     savedInstanceState.getFloat(BUNDLE_ZOOM));
         }
-
-        setUpMapIfNeeded();
     }
 
     @Override
@@ -91,12 +86,34 @@ public abstract class RealmClusterMapFragment<M extends RealmObject & ClusterIte
             outState.putDouble(BUNDLE_LONGITUDE, cameraPosition.target.longitude);
             outState.putFloat(BUNDLE_ZOOM, cameraPosition.zoom);
         }
+        mapView.onSaveInstanceState(outState);
+    }
+
+    @Override
+    public void onStart() {
+        super.onStart();
+        mapView.onStart();
     }
 
     @Override
     public void onResume() {
         super.onResume();
-        setUpMapIfNeeded();
+        mapView.onResume();
+        if (map == null) {
+            mapView.getMapAsync(this);
+        }
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        mapView.onPause();
+    }
+
+    @Override
+    public void onStop() {
+        super.onStop();
+        mapView.onStop();
     }
 
     @Override
@@ -105,6 +122,13 @@ public abstract class RealmClusterMapFragment<M extends RealmObject & ClusterIte
             realmResults.removeChangeListener(changeListener);
         }
         super.onDestroyView();
+        mapView.onDestroy();
+    }
+
+    @Override
+    public void onLowMemory() {
+        super.onLowMemory();
+        mapView.onLowMemory();
     }
 
     /**
@@ -131,7 +155,7 @@ public abstract class RealmClusterMapFragment<M extends RealmObject & ClusterIte
      * {@link #onSaveInstanceState(Bundle)} or the default location if a saved instance state is
      * unavailable. If you wish to keep this behavior, call super method before configuring further.
      */
-    public void configureMap(GoogleMap googleMap) {
+    protected void configureMap(GoogleMap googleMap) {
         if (savedCamera != null) {
             // Restore camera position/zoom
             map.moveCamera(savedCamera);
@@ -195,13 +219,6 @@ public abstract class RealmClusterMapFragment<M extends RealmObject & ClusterIte
         if (manager != null) {
             manager.updateRealmResults(realmResults);
         }
-    }
-
-    private void setUpMapIfNeeded() {
-        if (map != null) {
-            return;
-        }
-        mapFragment.getMapAsync(this);
     }
 
     /**
