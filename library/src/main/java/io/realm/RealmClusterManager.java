@@ -43,8 +43,8 @@ public class RealmClusterManager<M extends RealmObject & ClusterItem>
 
         List<RealmClusterItem<M>> items = new ArrayList<>(realmResults.size());
         for (M item : realmResults) {
-            if (item.getPosition() != null) {
-                items.add(new RealmClusterItem<M>(item));
+            if (item.isValid() && item.getPosition() != null) {
+                items.add(new RealmClusterItem<>(item));
             }
         }
         super.addItems(items);
