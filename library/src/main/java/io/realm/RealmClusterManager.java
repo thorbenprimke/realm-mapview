@@ -38,7 +38,7 @@ public class RealmClusterManager<M extends RealmObject & ClusterItem>
     }
 
     public void updateRealmResults(RealmResults<M> realmResults) {
-        super.clearItems();
+        clearItems();
         if (realmResults == null || !realmResults.isValid() || !realmResults.isLoaded()) return;
 
         List<RealmClusterItem<M>> items = new ArrayList<>(realmResults.size());
@@ -48,5 +48,6 @@ public class RealmClusterManager<M extends RealmObject & ClusterItem>
             }
         }
         super.addItems(items);
+        cluster();
     }
 }

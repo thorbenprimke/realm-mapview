@@ -132,6 +132,10 @@ public abstract class RealmClusterMapFragment<M extends RealmObject & ClusterIte
         return renderer;
     }
 
+    public RealmClusterManager<M> getClusterManager() {
+        return manager;
+    }
+
     /**
      * Override if a specific minimum cluster size is desired.
      */
