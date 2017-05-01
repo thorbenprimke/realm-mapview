@@ -1,5 +1,8 @@
 apply plugin: 'com.android.library'
 apply plugin: 'realm-android'
+apply plugin: 'com.github.dcendents.android-maven'
+
+group='com.github.thavelka'
 
 android {
     compileSdkVersion 25
