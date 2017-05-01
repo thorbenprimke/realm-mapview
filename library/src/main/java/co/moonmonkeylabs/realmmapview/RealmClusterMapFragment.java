@@ -1,121 +1,195 @@
 package co.moonmonkeylabs.realmmapview;
 
+import android.content.Context;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
+import com.google.android.gms.maps.CameraUpdate;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
-import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.GoogleMapOptions;
+import com.google.android.gms.maps.MapView;
+import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.maps.android.clustering.ClusterItem;
 import com.google.maps.android.clustering.ClusterManager;
+import com.google.maps.android.clustering.view.ClusterRenderer;
+import com.google.maps.android.clustering.view.DefaultClusterRenderer;
 
-import java.lang.reflect.Array;
-import java.lang.reflect.GenericArrayType;
-import java.lang.reflect.ParameterizedType;
-import java.lang.reflect.Type;
-import java.lang.reflect.TypeVariable;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
-import co.moonmonkeylabs.realmmap.R;
-import io.realm.Realm;
+import io.realm.RealmChangeListener;
+import io.realm.RealmClusterItem;
 import io.realm.RealmClusterManager;
 import io.realm.RealmObject;
 import io.realm.RealmResults;
 
 /**
- * A fragment that wraps a {@link SupportMapFragment} with added {@link ClusterManager} support and
- * built-in support for querying and rendering a {@link Realm} result list.
- *
- * Any subclasses must provide a class that extends {@link RealmObject} as the generic type and
- * implemented the three abstract methods that provide the title, latitude and longitude column
- * names.
+ * A fragment that wraps a {@link MapView} with added {@link ClusterManager} support and
+ * built-in support for rendering a {@link RealmResults} with real-time updates.
+ * <p>
+ * Subclasses must provide a RealmResults through the {@link #getRealmResults()} abstract method.
  */
-public abstract class RealmClusterMapFragment<M extends RealmObject> extends Fragment {
+@SuppressWarnings("unused")
+public abstract class RealmClusterMapFragment<M extends RealmObject & ClusterItem> extends Fragment
+        implements OnMapReadyCallback {
 
     private static final String BUNDLE_LATITUDE = "latitude";
     private static final String BUNDLE_LONGITUDE = "longitude";
     private static final String BUNDLE_ZOOM = "zoom";
 
-    private static final double DEFAULT_LATITUDE = 37.791116;
-    private static final double DEFAULT_LONGITUDE = -122.403816;
-    private static final int DEFAULT_ZOOM = 10;
+    private static final int DEFAULT_MIN_CLUSTER_SIZE = 4;
+    private static final double DEFAULT_LATITUDE = 29.7530955;
+    private static final double DEFAULT_LONGITUDE = -95.3600552;
+    private static final float DEFAULT_ZOOM = 10;
 
+    private RealmResults<M> realmResults;
+    private RealmChangeListener<RealmResults<M>> changeListener;
+    private MapView mapView;
     private GoogleMap map;
-    private Realm realm;
-    private Class<M> clazz;
+    private CameraUpdate savedCamera;
+    private RealmClusterManager<M> manager;
 
     @Override
     public View onCreateView(
             LayoutInflater inflater,
             ViewGroup container,
             Bundle savedInstanceState) {
-        return inflater.inflate(R.layout.realm_cluster_map_fragment, container, false);
+        GoogleMapOptions options = new GoogleMapOptions();
+        configureMapOptions(options);
+        mapView = new MapView(getContext(), options);
+        mapView.onCreate(savedInstanceState);
+        return mapView;
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public void onViewCreated(View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        clazz = (Class<M>) getTypeArguments(RealmClusterMapFragment.class, getClass()).get(0);
-        realm = Realm.getDefaultInstance();
-        setUpMapIfNeeded();
 
-        if (savedInstanceState != null) {
-            getMap().moveCamera(CameraUpdateFactory.newLatLngZoom(
+        if (savedInstanceState != null && map != null) {
+            savedCamera = CameraUpdateFactory.newLatLngZoom(
                     new LatLng(
                             savedInstanceState.getDouble(BUNDLE_LATITUDE),
                             savedInstanceState.getDouble(BUNDLE_LONGITUDE)),
-                    savedInstanceState.getFloat(BUNDLE_ZOOM)));
+                    savedInstanceState.getFloat(BUNDLE_ZOOM));
         }
     }
 
     @Override
     public void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
-        final CameraPosition cameraPosition = getMap().getCameraPosition();
-        outState.putDouble(BUNDLE_LATITUDE, cameraPosition.target.latitude);
-        outState.putDouble(BUNDLE_LONGITUDE, cameraPosition.target.longitude);
-        outState.putFloat(BUNDLE_ZOOM, cameraPosition.zoom);
-        maybeCloseRealm();
+        if (map != null) {
+            final CameraPosition cameraPosition = map.getCameraPosition();
+            outState.putDouble(BUNDLE_LATITUDE, cameraPosition.target.latitude);
+            outState.putDouble(BUNDLE_LONGITUDE, cameraPosition.target.longitude);
+            outState.putFloat(BUNDLE_ZOOM, cameraPosition.zoom);
+        }
+        mapView.onSaveInstanceState(outState);
+    }
+
+    @Override
+    public void onStart() {
+        super.onStart();
+        mapView.onStart();
     }
 
     @Override
     public void onResume() {
         super.onResume();
-        setUpMapIfNeeded();
+        mapView.onResume();
+        if (map == null) {
+            mapView.getMapAsync(this);
+        }
     }
 
     @Override
     public void onPause() {
         super.onPause();
-        maybeCloseRealm();
+        mapView.onPause();
+    }
+
+    @Override
+    public void onStop() {
+        super.onStop();
+        mapView.onStop();
+    }
+
+    @Override
+    public void onDestroyView() {
+        if (realmResults != null && changeListener != null) {
+            realmResults.removeChangeListener(changeListener);
+        }
+        super.onDestroyView();
+        mapView.onDestroy();
+    }
+
+    @Override
+    public void onLowMemory() {
+        super.onLowMemory();
+        mapView.onLowMemory();
     }
 
     /**
-     * Needs to be implemented and provide the column name of the column that should be rendered
-     * when a marker is clicked. The column type should be string.
+     * Provides the RealmObjects to be displayed on the map. The RealmObjects must implement
+     * {@link ClusterItem}.
      */
-    protected abstract String getTitleColumnName();
+    protected abstract RealmResults<M> getRealmResults();
 
     /**
-     * Needs to be implemented and provide the column name of the column that contains the latitude
-     * value for the extended {@link RealmObject}.
+     * Override to set custom options for the map before it is created.
+     * UI options such as enabling/disabling controls and gestures go here. For a full list of
+     * options, see <a href="https://goo.gl/HP1bjC">GoogleMapOptions documentation</a>.
+     * <p>
+     * By default this method does nothing.
      */
-    protected abstract String getLatitudeColumnName();
-
+    protected void configureMapOptions(GoogleMapOptions options) {}
 
     /**
-     * Needs to be implemented and provide the column name of the column that contains the longitude
-     * value for the extended {@link RealmObject}.
+     * Override to customize the map after it is ready.
+     * Add items, set the map type, move the camera, and enable user location here.
+     * For a full list of options, see <a href="https://goo.gl/pWVYDT">GoogleMap documentation</a>.
+     * <p>
+     * By default this will move the camera to either the location set in
+     * {@link #onSaveInstanceState(Bundle)} or the default location if a saved instance state is
+     * unavailable. If you wish to keep this behavior, call super method before configuring further.
      */
-    protected abstract String getLongitudeColumnName();
+    protected void configureMap(GoogleMap googleMap) {
+        if (savedCamera != null) {
+            // Restore camera position/zoom
+            map.moveCamera(savedCamera);
+            savedCamera = null;
+        } else {
+            // Configure default camera position/zoom
+            map.moveCamera(CameraUpdateFactory.newLatLngZoom(
+                    new LatLng(getDefaultLatitude(), getDefaultLongitude()),
+                    getDefaultZoom()));
+        }
+    }
+
+    /**
+     * Override if a custom {@link ClusterRenderer} is desired.
+     */
+    protected ClusterRenderer<RealmClusterItem<M>> getClusterRenderer
+    (Context context, GoogleMap map,ClusterManager<RealmClusterItem<M>> manager) {
+        DefaultClusterRenderer<RealmClusterItem<M>> renderer =
+                new DefaultClusterRenderer<>(context, map, manager);
+        renderer.setMinClusterSize(getDefaultMinClusterSize());
+        return renderer;
+    }
+
+    public RealmClusterManager<M> getClusterManager() {
+        return manager;
+    }
+
+    /**
+     * Override if a specific minimum cluster size is desired. This does not apply if
+     * {@link #getClusterRenderer} has been overridden.
+     */
+    public int getDefaultMinClusterSize() {
+        return DEFAULT_MIN_CLUSTER_SIZE;
+    }
 
     /**
      * Override if a specific starting latitude is desired.
@@ -134,141 +208,53 @@ public abstract class RealmClusterMapFragment<M extends RealmObject> extends Fra
     /**
      * Override if a specific starting zoom level is desired.
      */
-    public int getDefaultZoom() {
+    public float getDefaultZoom() {
         return DEFAULT_ZOOM;
     }
 
-    private void maybeCloseRealm() {
-        if (realm == null) {
-            return;
+    /**
+     * Clears and reloads all map items.
+     */
+    public void notifyDataSetChanged() {
+        if (manager != null) {
+            manager.updateRealmResults(realmResults);
         }
-        realm.close();
-        realm = null;
     }
 
-    @SuppressWarnings("unchecked")
-    private void setUpMapIfNeeded() {
-        if (map != null) {
-            return;
-        }
-        Fragment fragment = getChildFragmentManager().findFragmentById(R.id.support_map_fragment);
-        if (fragment == null) {
-            throw new IllegalStateException("Map fragment not found.");
-        }
-        map = ((SupportMapFragment) fragment).getMap();
-        if (map == null) {
+    /**
+     * Sets up clustering, autoUpdate, and listeners.
+     * If additional configuration to the map is required, override {@link #configureMap(GoogleMap)}.
+     */
+    @Override
+    public final void onMapReady(GoogleMap googleMap) {
+        if (googleMap == null) {
             throw new IllegalStateException("Map not found in fragment.");
         }
+        map = googleMap;
 
-        getMap().moveCamera(CameraUpdateFactory.newLatLngZoom(
-                new LatLng(getDefaultLatitude(), getDefaultLongitude()),
-                getDefaultZoom()));
+        // Set up cluster manager and renderer
+        manager = new RealmClusterManager<>(getActivity(), map);
+        manager.setRenderer(getClusterRenderer(getActivity(), map, manager));
 
-        RealmClusterManager<M> realmClusterManager =
-                new RealmClusterManager<>(getActivity(), getMap());
-        RealmResults<M> realmResults = realm.where(clazz).findAll();
-        realmClusterManager.updateRealmResults(
-                realmResults,
-                getTitleColumnName(),
-                getLatitudeColumnName(),
-                getLongitudeColumnName());
+        realmResults = getRealmResults();
+        manager.updateRealmResults(realmResults);
 
-        realmClusterManager.setRenderer(
-                new RealmClusterRenderer(getActivity(), getMap(), realmClusterManager));
-        getMap().setOnCameraChangeListener(realmClusterManager);
-        getMap().setOnMarkerClickListener(realmClusterManager);
-        getMap().setOnInfoWindowClickListener(realmClusterManager);
-    }
-
-    private GoogleMap getMap() {
-        setUpMapIfNeeded();
-        return map;
-    }
-
-    //
-    // The code below is copied from StackOverflow in order to avoid having to pass in the T as a
-    // Class for the Realm query/filtering.
-    // http://stackoverflow.com/a/15008017
-    //
-    /**
-     * Get the underlying class for a type, or null if the type is a variable
-     * type.
-     *
-     * @param type the type
-     * @return the underlying class
-     */
-    private static Class<?> getClass(Type type)
-    {
-        if (type instanceof Class) {
-            return (Class) type;
-        } else if (type instanceof ParameterizedType) {
-            return getClass(((ParameterizedType) type).getRawType());
-        } else if (type instanceof GenericArrayType) {
-            Type componentType = ((GenericArrayType) type).getGenericComponentType();
-            Class<?> componentClass = getClass(componentType);
-            if (componentClass != null) {
-                return Array.newInstance(componentClass, 0).getClass();
-            } else {
-                return null;
-            }
-        } else {
-            return null;
-        }
-    }
-
-    /**
-     * Get the actual type arguments a child class has used to extend a generic
-     * base class.
-     *
-     * @param baseClass the base class
-     * @param childClass the child class
-     * @return a list of the raw classes for the actual type arguments.
-     */
-    private static <T> List<Class<?>> getTypeArguments(
-            Class<T> baseClass, Class<? extends T> childClass)
-    {
-        Map<Type, Type> resolvedTypes = new HashMap<Type, Type>();
-        Type type = childClass;
-        // start walking up the inheritance hierarchy until we hit baseClass
-        while (!getClass(type).equals(baseClass)) {
-            if (type instanceof Class) {
-                // there is no useful information for us in raw types, so just keep going.
-                type = ((Class) type).getGenericSuperclass();
-            } else {
-                ParameterizedType parameterizedType = (ParameterizedType) type;
-                Class<?> rawType = (Class) parameterizedType.getRawType();
-
-                Type[] actualTypeArguments = parameterizedType.getActualTypeArguments();
-                TypeVariable<?>[] typeParameters = rawType.getTypeParameters();
-                for (int i = 0; i < actualTypeArguments.length; i++) {
-                    resolvedTypes.put(typeParameters[i], actualTypeArguments[i]);
+        // Set change listener on results
+        if (changeListener == null) {
+            changeListener = new RealmChangeListener<RealmResults<M>>() {
+                @Override
+                public void onChange(RealmResults<M> element) {
+                    notifyDataSetChanged();
                 }
-
-                if (!rawType.equals(baseClass)) {
-                    type = rawType.getGenericSuperclass();
-                }
-            }
+            };
+            realmResults.addChangeListener(changeListener);
         }
 
-        // finally, for each actual type argument provided to baseClass, determine (if possible)
-        // the raw class for that type argument.
-        Type[] actualTypeArguments;
-        if (type instanceof Class) {
-            actualTypeArguments = ((Class) type).getTypeParameters();
-        } else {
-            actualTypeArguments = ((ParameterizedType) type).getActualTypeArguments();
-        }
-        List<Class<?>> typeArgumentsAsClasses = new ArrayList<Class<?>>();
-        // resolve types by chasing down type variables.
-        for (Type baseType : actualTypeArguments) {
-            while (resolvedTypes.containsKey(baseType)) {
-                baseType = resolvedTypes.get(baseType);
-            }
-            typeArgumentsAsClasses.add(getClass(baseType));
-        }
-        return typeArgumentsAsClasses;
+        // Set up map callbacks
+        map.setOnCameraIdleListener(manager);
+        map.setOnMarkerClickListener(manager);
+        map.setOnInfoWindowClickListener(manager);
+
+        configureMap(map);
     }
-    //
-    // End StackOverflow code
-    //
 }
