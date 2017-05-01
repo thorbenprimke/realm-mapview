@@ -1,5 +1,8 @@
 apply plugin: 'com.android.library'
 apply plugin: 'realm-android'
+apply plugin: 'com.github.dcendents.android-maven'
+
+group='com.github.thavelka'
 
 android {
     compileSdkVersion 25
@@ -22,4 +25,14 @@ android {
 dependencies {
     compile 'com.google.maps.android:android-maps-utils:0.5'
     compile 'com.google.android.gms:play-services-maps:10.2.1'
+}
+
+// build a jar with source files
+task sourcesJar(type: Jar) {
+    from android.sourceSets.main.java.srcDirs
+    classifier = 'sources'
+}
+
+artifacts {
+    archives sourcesJar
 }
